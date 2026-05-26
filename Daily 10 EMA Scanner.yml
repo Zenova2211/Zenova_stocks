@@ -1,0 +1,26 @@
+name: Daily 10 EMA Scanner
+on:
+  schedule:
+    - cron: '50 9 * * 1-5'  # 3:20 PM IST Mon-Fri
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install deps
+        run: pip install -r requirements.txt
+      
+      - name: Run Scanner
+        run: python scanner.py
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
