@@ -3,7 +3,6 @@ import requests
 import os
 import time
 from datetime import datetime, timezone, timedelta
-from nsepython import equity_history
 
 TELEGRAM_TOKEN = os.environ['TELEGRAM_TOKEN']
 CHAT_ID = os.environ['CHAT_ID']
@@ -29,24 +28,34 @@ fno_stocks = [
     'MRF', 'APOLLOTYRE', 'BOSCHLTD', 'MOTHERSON', 'BHARATFORG', 'ASHOKLEY', 'CUMMINSIND', 'RVNL'
 ]
 
+# NSE ko lagega ki browser se request aa rahi hai
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Accept': '*/*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Referer': 'https://www.nseindia.com/get-quotes/equity?symbol=RELIANCE'
+}
+
+session = requests.Session()
+session.get('https://www.nseindia.com', headers=headers)  # Cookie le lo pehle
+
 results = []
 exit_results = []
 success_count = 0
 
-end_date = datetime.now().strftime("%d-%m-%Y")
-start_date = (datetime.now() - timedelta(days=90)).strftime("%d-%m-%Y")
-
 for i, symbol in enumerate(fno_stocks):
     try:
-        if i % 10 == 0:
-            time.sleep(1)
+        if i % 5 == 0:  # Har 5 stocks pe 2 sec ruk
+            time.sleep(2)
             
-        df = equity_history(symbol, "EQ", start_date, end_date)
+        url = f'https://www.nseindia.com/api/historical/cm/equity?symbol={symbol}&series=[%22EQ%22]&from=01-01-2026&to=26-05-2026'
+        data = session.get(url, headers=headers, timeout=10).json()
         
-        if df.empty or len(df) < 30:
+        if 'data' not in data or len(data['data']) < 30:
             continue
             
-        df = df.sort_values('CH_TIMESTAMP')
+        df = pd.DataFrame(data['data'])
+        df = df.iloc[::-1].reset_index(drop=True)  # Reverse - oldest first
         df['Close'] = df['CH_CLOSING_PRICE']
         df['High'] = df['CH_TRADE_HIGH_PRICE']
         df['EMA10'] = df['Close'].ewm(span=10, adjust=False).mean()
@@ -71,7 +80,7 @@ for i, symbol in enumerate(fno_stocks):
         if day1_below and day2_below:
             exit_results.append(symbol)
             
-    except Exception as e:
+    except Exception:
         continue
 
 # IST time
