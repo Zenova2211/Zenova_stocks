@@ -4,11 +4,15 @@ import requests
 import os
 import time
 from datetime import datetime, timezone, timedelta
+from curl_cffi import requests as curl_requests
 
 TELEGRAM_TOKEN = os.environ['TELEGRAM_TOKEN']
 CHAT_ID = os.environ['CHAT_ID']
 
-# NSE FNO Stock List - Updated Sep 2026
+# Session bana lo - Yahoo ko lagega browser hai
+session = curl_requests.Session(impersonate="chrome")
+
+# FNO Stock List - Current
 fno_stocks = ['ABB',
 'AMBER',
 'ALKEM',
@@ -225,18 +229,20 @@ fno_stocks = ['ABB',
 'HYUNDAI']
 
 symbols = [s + '.NS' for s in fno_stocks]
-
 results = []
 exit_results = []
+failed_count = 0
 
 for i, symbol in enumerate(symbols):
     try:
-        if i % 30 == 0:
-            time.sleep(1)
+        if i % 20 == 0:
+            time.sleep(1.5)
             
-        df = yf.download(symbol, period='60d', interval='1d', progress=False, auto_adjust=True, threads=False)
+        ticker = yf.Ticker(symbol, session=session)
+        df = ticker.history(period='60d', interval='1d', auto_adjust=True)
         
         if df.empty or len(df) < 30:
+            failed_count += 1
             continue
             
         df['EMA10'] = df['Close'].ewm(span=10, adjust=False).mean()
@@ -260,7 +266,8 @@ for i, symbol in enumerate(symbols):
         if day1_below and day2_below:
             exit_results.append(symbol.replace('.NS', ''))
             
-    except Exception as e:
+    except Exception:
+        failed_count += 1
         continue
 
 # IST time
@@ -269,6 +276,7 @@ now_ist = datetime.now(ist).strftime('%d %b %Y, %I:%M %p')
 
 # Telegram Message
 msg = f"📊 <b>10 EMA FNO Scanner</b> - {now_ist}\n"
+msg += f"Scanned: {len(symbols)-failed_count}/{len(symbols)} stocks\n"
 msg += f"{'='*30}\n\n"
 
 if results:
