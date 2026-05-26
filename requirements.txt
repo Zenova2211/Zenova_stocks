@@ -1,4 +1,4 @@
-pandas==2.2.2
-requests==2.32.3
-nsepython==2.99
-lxml==5.3.0
+pandas
+requests
+nsepython
+lxml
