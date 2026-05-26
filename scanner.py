@@ -33,13 +33,15 @@ results = []
 exit_results = []
 success_count = 0
 
+end_date = datetime.now().strftime("%d-%m-%Y")
+start_date = (datetime.now() - timedelta(days=90)).strftime("%d-%m-%Y")
+
 for i, symbol in enumerate(fno_stocks):
     try:
         if i % 10 == 0:
             time.sleep(1)
             
-        # NSE se 60 din ka data
-        df = equity_history(symbol, "EQ", "01-01-2026", "26-05-2026")
+        df = equity_history(symbol, "EQ", start_date, end_date)
         
         if df.empty or len(df) < 30:
             continue
