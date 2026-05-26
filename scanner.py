@@ -1,255 +1,58 @@
-import yfinance as yf
 import pandas as pd
 import requests
 import os
 import time
 from datetime import datetime, timezone, timedelta
-from curl_cffi import requests as curl_requests
+from nsepython import equity_history
 
 TELEGRAM_TOKEN = os.environ['TELEGRAM_TOKEN']
 CHAT_ID = os.environ['CHAT_ID']
 
-# Session bana lo - Yahoo ko lagega browser hai
-session = curl_requests.Session(impersonate="chrome")
+# FNO Stock List
+fno_stocks = [
+    'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK', 'HINDUNILVR', 'ITC', 'SBIN', 'BHARTIARTL', 
+    'KOTAKBANK', 'LT', 'AXISBANK', 'ASIANPAINT', 'MARUTI', 'SUNPHARMA', 'TITAN', 'ULTRACEMCO', 
+    'BAJFINANCE', 'NESTLEIND', 'WIPRO', 'ONGC', 'NTPC', 'POWERGRID', 'TATAMOTORS', 'M&M', 
+    'HCLTECH', 'ADANIENT', 'ADANIPORTS', 'COALINDIA', 'TATASTEEL', 'JSWSTEEL', 'HINDALCO', 
+    'GRASIM', 'BAJAJFINSV', 'BAJAJ-AUTO', 'HEROMOTOCO', 'EICHERMOT', 'TECHM', 'CIPLA', 'DRREDDY', 
+    'DIVISLAB', 'APOLLOHOSP', 'INDUSINDBK', 'SBILIFE', 'HDFCLIFE', 'BRITANNIA', 'DABUR', 'GODREJCP', 
+    'MARICO', 'PIDILITIND', 'BERGEPAINT', 'HAVELLS', 'SIEMENS', 'ABB', 'BEL', 'HAL', 'BHEL', 
+    'IRCTC', 'ZOMATO', 'ADANIGREEN', 'ADANIPOWER', 'TATAPOWER', 'TATACONSUM', 'TRENT', 'DMART', 
+    'VEDL', 'SAIL', 'JINDALSTEL', 'GAIL', 'BPCL', 'IOC', 'RECLTD', 'PFC', 'DLF', 'AMBUJACEM', 
+    'ACC', 'SHREECEM', 'UPL', 'PIIND', 'SRF', 'TATACHEM', 'MPHASIS', 'LTTS', 'LTIM', 'PERSISTENT', 
+    'COFORGE', 'INDUSTOWER', 'INDIGO', 'BANKBARODA', 'PNB', 'CANBK', 'FEDERALBNK', 'AUBANK', 
+    'IDFCFIRSTB', 'BANDHANBNK', 'ICICIPRULI', 'HDFCAMC', 'SBICARD', 'CHOLAFIN', 'MUTHOOTFIN', 
+    'LICHSGFIN', 'MANAPPURAM', 'CUB', 'RBLBANK', 'ABCAPITAL', 'PEL', 'M&MFIN', 'SHRIRAMFIN', 
+    'ASTRAL', 'POLYCAB', 'CROMPTON', 'VOLTAS', 'DIXON', 'JUBLFOOD', 'METROPOLIS', 'LALPATHLAB', 
+    'SYNGENE', 'LAURUSLABS', 'GLAND', 'AUROPHARMA', 'LUPIN', 'TORNTPHARM', 'ALKEM', 'IPCALAB', 
+    'BIOCON', 'ZYDUSLIFE', 'UBL', 'VBL', 'PAGEIND', 'ABFRL', 'PVRINOX', 'TVSMOTOR', 'BALKRISIND', 
+    'MRF', 'APOLLOTYRE', 'BOSCHLTD', 'MOTHERSON', 'BHARATFORG', 'ASHOKLEY', 'CUMMINSIND', 'RVNL'
+]
 
-# FNO Stock List - Current
-fno_stocks = ['ABB',
-'AMBER',
-'ALKEM',
-'APOLLOHOSP',
-'ASTRAL',
-'360ONE',
-'AXISBANK',
-'ADANIENSOL',
-'BAJAJ-AUTO',
-'ADANIENT',
-'ADANIGREEN',
-'ADANIPORTS',
-'BANDHANBNK',
-'BAJAJHLDNG',
-'BANKBARODA',
-'APLAPOLLO',
-'BHARATFORG',
-'ASHOKLEY',
-'BHARTIARTL',
-'BIOCON',
-'BLUESTARCO',
-'ASIANPAINT',
-'CANBK',
-'BAJAJFINSV',
-'BAJFINANCE',
-'COLPAL',
-'BANKINDIA',
-'ABCAPITAL',
-'DIXON',
-'FEDERALBNK',
-'FORTIS',
-'EICHERMOT',
-'GAIL',
-'BEL',
-'GLENMARK',
-'ANGELONE',
-'GMRAIRPORT',
-'GODREJCP',
-'BHEL',
-'GRASIM',
-'BOSCHLTD',
-'BPCL',
-'HDFCAMC',
-'BSE',
-'CAMS',
-'CGPOWER',
-'CIPLA',
-'HINDPETRO',
-'ICICIPRULI',
-'COALINDIA',
-'AUBANK',
-'IEX',
-'INDIANB',
-'CONCOR',
-'IOC',
-'INDUSINDBK',
-'CROMPTON',
-'CUMMINSIND',
-'IREDA',
-'AUROPHARMA',
-'DABUR',
-'IRFC',
-'JINDALSTEL',
-'DALBHARAT',
-'DELHIVERY',
-'JSWENERGY',
-'DIVISLAB',
-'JSWSTEEL',
-'KEI',
-'DMART',
-'LTF',
-'MARICO',
-'MCX',
-'NTPC',
-'BDL',
-'GODREJPROP',
-'NUVAMA',
-'HDFCLIFE',
-'HEROMOTOCO',
-'ONGC',
-'LAURUSLABS',
-'HINDUNILVR',
-'HINDZINC',
-'PFC',
-'ICICIBANK',
-'ICICIGI',
-'IDFCFIRSTB',
-'INDHOTEL',
-'INDUSTOWER',
-'INFY',
-'LICHSGFIN',
-'PIIND',
-'PNBHOUSING',
-'BRITANNIA',
-'JUBLFOOD',
-'POWERINDIA',
-'KAYNES',
-'KOTAKBANK',
-'LICI',
-'LODHA',
-'RBLBANK',
-'CDSL',
-'MANKIND',
-'LUPIN',
-'MARUTI',
-'RECLTD',
-'RELIANCE',
-'NMDC',
-'COFORGE',
-'PETRONET',
-'SAIL',
-'POLYCAB',
-'SBICARD',
-'SHREECEM',
-'DRREDDY',
-'SHRIRAMFIN',
-'MFSL',
-'SOLARINDS',
-'MOTHERSON',
-'SAMMAANCAP',
-'SRF',
-'SUPREMEIND',
-'CHOLAFIN',
-'SWIGGY',
-'NATIONALUM',
-'TATACONSUM',
-'ETERNAL',
-'SUNPHARMA',
-'EXIDEIND',
-'TATASTEEL',
-'TCS',
-'TIINDIA',
-'OIL',
-'HAVELLS',
-'TITAN',
-'HDFCBANK',
-'TORNTPOWER',
-'TORNTPHARM',
-'TRENT',
-'TVSMOTOR',
-'UPL',
-'INOXWIND',
-'ZYDUSLIFE',
-'KPITTECH',
-'PATANJALI',
-'PGEL',
-'ITC',
-'PNB',
-'POWERGRID',
-'HINDALCO',
-'KFINTECH',
-'PPLPHARMA',
-'PREMIERENE',
-'PRESTIGE',
-'LTM',
-'MANAPPURAM',
-'SBILIFE',
-'SBIN',
-'MAXHEALTH',
-'MAZDOCK',
-'SIEMENS',
-'MUTHOOTFIN',
-'NYKAA',
-'OBEROIRLTY',
-'OFSS',
-'SONACOMS',
-'PAGEIND',
-'PAYTM',
-'PHOENIXLTD',
-'PIDILITIND',
-'KALYANKJIL',
-'SYNGENE',
-'TATAPOWER',
-'LT',
-'NESTLEIND',
-'ULTRACEMCO',
-'TATAELXSI',
-'UNIONBANK',
-'TATATECH',
-'UNITDSPR',
-'VEDL',
-'VOLTAS',
-'TMPV',
-'UNOMINDA',
-'WIPRO',
-'YESBANK',
-'AMBUJACEM',
-'MPHASIS',
-'DLF',
-'NAUKRI',
-'NBCC',
-'HAL',
-'HCLTECH',
-'HUDCO',
-'PERSISTENT',
-'INDIGO',
-'M&M',
-'NHPC',
-'VBL',
-'POLICYBZR',
-'RVNL',
-'SUZLON',
-'IDEA',
-'TECHM',
-'WAAREEENER',
-'JIOFIN',
-'GODFRYPHLP',
-'ADANIPOWER',
-'COCHINSHIP',
-'FORCEMOT',
-'NAM-INDIA',
-'MOTILALOFS',
-'VMM',
-'HYUNDAI']
-
-symbols = [s + '.NS' for s in fno_stocks]
 results = []
 exit_results = []
-failed_count = 0
+success_count = 0
 
-for i, symbol in enumerate(symbols):
+for i, symbol in enumerate(fno_stocks):
     try:
-        if i % 20 == 0:
-            time.sleep(1.5)
+        if i % 10 == 0:
+            time.sleep(1)
             
-        ticker = yf.Ticker(symbol, session=session)
-        df = ticker.history(period='60d', interval='1d', auto_adjust=True)
+        # NSE se 60 din ka data
+        df = equity_history(symbol, "EQ", "01-01-2026", "26-05-2026")
         
         if df.empty or len(df) < 30:
-            failed_count += 1
             continue
             
+        df = df.sort_values('CH_TIMESTAMP')
+        df['Close'] = df['CH_CLOSING_PRICE']
+        df['High'] = df['CH_TRADE_HIGH_PRICE']
         df['EMA10'] = df['Close'].ewm(span=10, adjust=False).mean()
+        success_count += 1
         
         # Entry Logic
         lookback = 20
-        below_ema = df['Close'][-lookback:] < df['EMA10'][-lookback:]
+        below_ema = df['Close'].tail(lookback) < df['EMA10'].tail(lookback)
         downtrend = below_ema.sum() > lookback * 0.7
         
         day1_above = df['Close'].iloc[-2] > df['EMA10'].iloc[-2]
@@ -257,17 +60,16 @@ for i, symbol in enumerate(symbols):
         higherHigh = df['High'].iloc[-1] > df['High'].iloc[-2] > df['High'].iloc[-3]
         
         if downtrend and day1_above and day2_above and higherHigh:
-            results.append(symbol.replace('.NS', ''))
+            results.append(symbol)
         
         # Exit Logic
         day1_below = df['Close'].iloc[-2] < df['EMA10'].iloc[-2]
         day2_below = df['Close'].iloc[-1] < df['EMA10'].iloc[-1]
         
         if day1_below and day2_below:
-            exit_results.append(symbol.replace('.NS', ''))
+            exit_results.append(symbol)
             
-    except Exception:
-        failed_count += 1
+    except Exception as e:
         continue
 
 # IST time
@@ -276,7 +78,7 @@ now_ist = datetime.now(ist).strftime('%d %b %Y, %I:%M %p')
 
 # Telegram Message
 msg = f"📊 <b>10 EMA FNO Scanner</b> - {now_ist}\n"
-msg += f"Scanned: {len(symbols)-failed_count}/{len(symbols)} stocks\n"
+msg += f"Scanned: {success_count}/{len(fno_stocks)} stocks\n"
 msg += f"{'='*30}\n\n"
 
 if results:
