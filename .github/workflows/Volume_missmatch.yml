@@ -1,0 +1,16 @@
+name: Chartink Webhook
+on:
+  repository_dispatch:
+    types: [Volume_missmatch]  # Yaha change kiya
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram Alert
+        run: |
+          STOCKS="${{ github.event.client_payload.stocks }}"
+          TIME=$(TZ='Asia/Kolkata' date '+%d %b, %I:%M %p')
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.CHAT_ID }}" \
+          -d text="🔥 <b>Volume Mismatch Alert</b> - $TIME %0A%0A📊 <b>Stocks:</b>%0A$STOCKS" \
+          -d parse_mode="HTML"
